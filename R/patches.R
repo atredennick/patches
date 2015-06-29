@@ -94,7 +94,7 @@ patches_var <- function(D,
   ##  Collate output
   ####
   out_list <- list(species_synchrony = species_synchrony,
-                   species_var = species_cvs,
+                   species_var = species_cvs^2,
                    plot_species_richness = avg_spp_rich,
                    weighted_patch_cv = weighted_local_cv,
                    alpha_var = weighted_local_cv^2,
