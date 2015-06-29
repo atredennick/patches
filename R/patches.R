@@ -44,7 +44,7 @@ patches_var <- function(D,
   Dtmp <- D[,c("id_var", "time_var", species_columns)]
   Dmelt <- melt(Dtmp, id.vars = c("id_var", "time_var"))
   species_cvs <- ddply(Dmelt, .(id_var, variable), summarise,
-                       cv_square = sd(value)/mean(value))
+                       cv_square = (sd(value)/mean(value))^2)
   species_cvs <- species_cvs[complete.cases(species_cvs),]
   ##TODO: calculate weighted average species CV across patches???
   
@@ -94,7 +94,7 @@ patches_var <- function(D,
   ##  Collate output
   ####
   out_list <- list(species_synchrony = species_synchrony,
-                   species_var = species_cvs^2,
+                   species_var = species_cvs,
                    plot_species_richness = avg_spp_rich,
                    weighted_patch_cv = weighted_local_cv,
                    alpha_var = weighted_local_cv^2,
