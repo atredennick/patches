@@ -1,0 +1,35 @@
+---
+title: 'How to load and use the patches package'
+output: html_document
+---
+This is a quick example for using the function `patches_var()` in the patches package.
+
+```{r example, echo=TRUE, message=FALSE}
+# Load relevant packages
+# install.packages(c("dplyr", "plyr", "reshape2", "synchrony", "devtools"))
+require(dplyr)
+require(plyr)
+require(reshape2)
+require(synchrony)
+require(devtools)
+
+# Install package from GitHub
+devtools::install_github("atredennick/patches")
+require(patches)
+
+
+# Read in data
+setwd("/Users/atredenn/Dropbox/Patches/")
+species_data_kbs <- read.csv("./Data sets/AllSpData_02282015.csv")%>%
+              filter(site_code=="KBS") %>%
+              filter(treatment=="T0F0")
+
+# Run data through function with default settings
+all_metrics <- patches_var(D=species_data_kbs)
+
+# Look at the structure
+str(all_metrics)
+
+# Look at patch synchrony, for example
+print(all_metrics$patch_synchrony)
+```
