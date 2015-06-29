@@ -1,0 +1,9 @@
+Package: patches
+Type: Package
+Title: Calculates metrics for analysis of alpha, beta, and gamma variability
+Version: 1.0
+Date: 2015-06-28
+Author: Andrew Tredennick
+Maintainer: Andrew Tredennick <atredenn@gmail.com>
+Description: In progress...
+License: MIT
