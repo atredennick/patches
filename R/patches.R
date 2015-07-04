@@ -22,6 +22,18 @@ patches_var <- function(D,
   num_plots <- length(unique(D$id_var))
   plot_ids <- unique(D$id_var)
   
+  ####
+  ##  Test to make sure plots occur at all time points
+  ####
+  yrs <- unique(D$time_var)
+  yr_plots <- list()
+  for(y in 1:length(yrs)){
+    tmp <- subset(D, time_var==yrs[y])
+    yr_plots <- unique(tmp$id_var)
+    if(all(plot_ids %in% yr_plots)==FALSE){
+      stop("plot numbers are uneven through years; \nconsider breaking up the analysis by years")
+    }
+  }
   
   ####
   ##  Within patch species synchrony
