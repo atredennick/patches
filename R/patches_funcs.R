@@ -77,6 +77,7 @@ ind_spp_var <- function(D,
                         species_id="sp"){
   require(plyr)
   require(dplyr)
+  require(reshape2)
   
   ####
   ####  Housekeeping for column names
@@ -124,6 +125,81 @@ ind_spp_var <- function(D,
   return(output_df)
   
 } # end function
+
+
+
+
+
+#' Calculate averaged species variability within each plot
+#' @author Andrew Tredennick
+#' @param D Dataframe with time series of species level measurements of abundance/biomass across multiple patches. The dataframe can contain many additional columns that will be ignored.
+#' @param id_var Column name within dataframe that identifies unique patches. Defaults to "plot_id".
+#' @param time_var Column name within dataframe for the temporal identifier. Defaults to "calendar_year".
+#' @param species_id Character flag for columns indicating species id. Defaults to "sp".
+#' @return output_df Dataframe of averaged temporal coefficient of variation for each plot.
+avg_spp_var <- function(D, 
+                        id_var="plot_id", 
+                        time_var="calendar_year", 
+                        species_id="sp"){
+  require(plyr)
+  require(dplyr)
+  require(reshape2)
+  
+  ####
+  ####  Housekeeping for column names
+  ####
+  colnames(D)[which(colnames(D)==id_var)] <- "id_var"
+  colnames(D)[which(colnames(D)==time_var)] <- "time_var"
+  num_plots <- length(unique(D$id_var))
+  plot_ids <- unique(D$id_var)
+  
+  ####
+  ####  Test to make sure plots occur at all time points
+  ####
+  yrs <- unique(D$time_var)
+  yr_plots <- list()
+  for(y in 1:length(yrs)){
+    tmp <- subset(D, time_var==yrs[y])
+    yr_plots <- unique(tmp$id_var)
+    if(all(plot_ids %in% yr_plots)==FALSE){
+      stop("plot numbers are uneven through years; \nconsider breaking up the analysis by years")
+    } # end T/F
+  } # end years loop
+  
+  # Get index of species columns
+  species_columns <- colnames(D)[grep(species_id, colnames(D))]
+  species_columns <- species_columns[-grep("species", species_columns)]
+  
+  ####
+  ####  Variability of j-th species in patch i (CV_j(i)^2)
+  ####
+  spp_within_plot_cv <- list()
+  for(i in 1:num_plots){
+    tmp_data <- subset(D, id_var==plot_ids[i])
+    comm_data <- tmp_data[,species_columns]
+    # Remove species columns that only include 0s
+    keepers <- which(colSums(comm_data)!=0)
+    comm_data <- comm_data[,keepers]
+    cv_ji <- apply(comm_data, MARGIN = 2, sd)/apply(comm_data, MARGIN = 2, mean)
+    cv_df <- data.frame(species=colnames(comm_data),
+                        cv = cv_ji)
+    spp_within_plot_cv[[as.character(plot_ids[i])]] <- cv_df
+  } # end plots loop
+  
+  var_spp_df <- melt(data = spp_within_plot_cv, id_vars="species")
+  colnames(var_spp_df) <- c("species_id", "variable", "value", "plot_id")
+  
+} # end function
+
+
+
+
+
+
+
+
+
+
 
 
 
