@@ -70,7 +70,7 @@ species_synchrony <- function(D,
 #' @param id_var Column name within dataframe that identifies unique patches. Defaults to "plot_id".
 #' @param time_var Column name within dataframe for the temporal identifier. Defaults to "calendar_year".
 #' @param species_id Character flag for columns indicating species id. Defaults to "sp".
-#' @return spp_var_list List of temporal variability for each species in each plot.
+#' @return output_df Dataframe of temporal coefficient of variation for each species in each plot.
 ind_spp_var <- function(D, 
                         id_var="plot_id", 
                         time_var="calendar_year", 
@@ -99,17 +99,29 @@ ind_spp_var <- function(D,
     } # end T/F
   } # end years loop
   
-  
-  # Make storage matrix for j species X i plots
-  comm_matrix <- D[,species_columns]
-  # Remove species columns that only include 0s
-  num_species <- length(which(colSums(comm_matrix)!=0))
-  var_out_mat <- matrix(data = NA, nrow=num_species, ncol=num_plots)
+  # Get index of species columns
+  species_columns <- colnames(D)[grep(species_id, colnames(D))]
+  species_columns <- species_columns[-grep("species", species_columns)]
   
   ####
   ####  Variability of j-th species in patch i (CV_j(i)^2)
   ####
+  spp_within_plot_cv <- list()
+  for(i in 1:num_plots){
+    tmp_data <- subset(D, id_var==plot_ids[i])
+    comm_data <- tmp_data[,species_columns]
+    # Remove species columns that only include 0s
+    keepers <- which(colSums(comm_data)!=0)
+    comm_data <- comm_data[,keepers]
+    cv_ji <- apply(comm_data, MARGIN = 2, sd)/apply(comm_data, MARGIN = 2, mean)
+    cv_df <- data.frame(species=colnames(comm_data),
+                        cv = cv_ji)
+    spp_within_plot_cv[[as.character(plot_ids[i])]] <- cv_df
+  } # end plots loop
   
+  output_df <- melt(data = spp_within_plot_cv, id_vars="species")
+  colnames(output_df) <- c("species_id", "variable", "value", "plot_id")
+  return(output_df)
   
 } # end function
 
