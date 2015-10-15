@@ -1,6 +1,6 @@
 ---
-title: 'Using individual functions in patches'
-output: html_document
+title: "Using individual functions in patches"
+output: pdf_document
 ---
 This is a quick example for using the individual functions in the patches package.
 
