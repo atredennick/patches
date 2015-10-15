@@ -1,5 +1,6 @@
 # patches
 [![Build Status](https://travis-ci.org/atredennick/patches.svg?branch=master)](https://travis-ci.org/atredennick/patches)
+
 `patches` is an R package to calculate metrics of alhpa, beta, and gamma variability from species level time series data where the data is collected over several patches (plots) in a landscape or region. All metrics are based on equations derived in [Wang and Loreau 2014, Ecology Letters](http://onlinelibrary.wiley.com/doi/10.1111/ele.12292/abstract). 
 
 The function `patches_var()` returns a list of metrics, currently including (note that all descriptions of the metrics described below are *ver batim* from [Wang and Loreau 2014](http://onlinelibrary.wiley.com/doi/10.1111/ele.12292/abstract)):
