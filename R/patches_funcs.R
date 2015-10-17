@@ -480,13 +480,13 @@ gamma_var <- function(D,
                           total_biomass = sum(value))
   
   gamma_cv <- sd(total_metacomm$total_biomass)/mean(total_metacomm$total_biomass)
-  alpha_variability <- alpha_var(D = D)
-  beta_variability <- beta_var(D = D)
+  alpha_variability <- alpha_var(D = D)$alpha_var
+  beta_variability <- beta_var(D = D)$beta_variability
   gamma_test <- alpha_variability / beta_variability
   if(round(gamma_cv^2,2) != round(gamma_test,2)){
     warning("alpha and beta variability not producing gamma variability as expected")
   }
   
-  return(gamma_test)
+  return(gamma_cv^2)
 
 } # end gamma variability function

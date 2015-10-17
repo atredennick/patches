@@ -89,9 +89,8 @@ print(B_1)
 
 ### Gamma variability (CV_M^2)
 ```{r gvar, echo=TRUE, message=FALSE}
-CV_L <- gamma_var(D = species_data_kbs)
+CV_M <- gamma_var(D = species_data_kbs)
 # Returns one value
-print(CV_L)
+print(CV_M)
 ```
-This is returning a warning right now. 
 
