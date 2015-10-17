@@ -345,65 +345,22 @@ alpha_var <- function(D,
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
   species_columns <- species_columns[-grep("species", species_columns)]
   
-  ####
-  ####  Within patch species synchrony
-  ####
-  species_synchrony <- matrix(ncol=2, nrow=num_plots)
-  for(plot_now in 1:num_plots){
-    tmp_data <- subset(D, id_var==plot_ids[plot_now])
-    comm_matrix <- tmp_data[,species_columns]
-    # Remove species columns that only include 0s
-    keepers <- which(colSums(comm_matrix)!=0)
-    comm_matrix <- comm_matrix[,keepers]
-    
-    cov_matrix <- cov(comm_matrix)
-    intra_cov_vector <- diag(cov_matrix)
-    # diag(cov_matrix) <- 0
-    summed_inter <- sum(cov_matrix)
-    summed_sq_intra <- sum(sqrt(intra_cov_vector))
-    
-    # Save output
-    species_synchrony[plot_now,1] <- plot_ids[plot_now]
-    species_synchrony[plot_now,2] <- summed_inter / summed_sq_intra^2
-  } # end plot loop
+  # Get mean community biomass, cv per plot
+  spp_long <- melt(D, measure.vars = species_columns)
+  patch_abund <- ddply(spp_long, .(time_var, id_var), summarise,
+                       comm_anpp = sum(value))
+  patch_cvs <- ddply(patch_abund , .(id_var), summarise,
+                     cv = sd(comm_anpp)/mean(comm_anpp),
+                     sds = sd(comm_anpp))
+  total_metacomm <- ddply(spp_long, .(time_var), summarise,
+                          total_biomass = sum(value))
+  mean_metacomm <- mean(total_metacomm$total_biomass)
+  weighted_local_cv <- sum(patch_cvs$sds) / mean_metacomm
   
-  ####
-  ####  Variability of j-th species in patch i (CV_j(i)^2)
-  ####
-  Dtmp <- D[,c("id_var", "time_var", species_columns)]
-  Dmelt <- melt(Dtmp, id.vars = c("id_var", "time_var"))
-  Dout <- ddply(Dmelt, .(id_var, variable), summarise,
-                avg = mean(value),
-                sdev = sd(value),
-                cv = sd(value)/mean(value))
-  colnames(Dout) <- c("plot", "species", "avg", "sdev", "cv")
-  Dout <- Dout[which(Dout$avg>0),] #remove spp absent throughout time series
+  alpha_cv_sq <- weighted_local_cv^2
   
-  # Get mean community biomass per plot
-  Dplot <- Dmelt[which(Dmelt$value>0),]
-  plot_biomass <- ddply(Dplot, .(id_var, time_var), summarise,
-                        tot_plot_biom = sum(value))
-  avg_plot_biomass <- ddply(plot_biomass, .(id_var), summarise,
-                            avg_biomass = mean(tot_plot_biom))
-  names(avg_plot_biomass) <- c("plot", "avg_plot_biomass")
-  
-  Dout <- merge(Dout, avg_plot_biomass) 
-  
-  # Make spp weights
-  Dout$sppweights <- with(Dout, avg/avg_plot_biomass)
-  Dout$var <- with(Dout, sppweights*cv)
-  var_df <- ddply(Dout, .(plot), summarise,
-                  sum(var))
-  avgd_spp_var <- var_df[,2]
-  var_comm_sq <- (avgd_spp_var^2)*species_synchrony[,2]
-  
-  plot_weights <- avg_plot_biomass$avg_plot_biomass/mean(avg_plot_biomass$avg_plot_biomass)
-  var_comm_sq <- (avgd_spp_var^2)*species_synchrony[,2]
-  
-  
-  alpha_cv_sq <- (sum(plot_weights*sqrt(var_comm_sq)))^2
-  
-  return(alpha_cv_sq)
+  return(data.frame(alpha_var = alpha_cv_sq,
+                    weighted_local_cv = weighted_local_cv))
   
 } # end function
 
@@ -467,7 +424,8 @@ beta_var <- function(D,
   metacomm_cv <- sqrt(sum(w))/mean_metacomm
   patch_synchrony <- metacomm_cv^2 / weighted_local_cv^2
   
-  return(1/patch_synchrony)
+  return(data.frame(beta_variability = 1/patch_synchrony,
+                    patch_synchrony = patch_synchrony))
 } # end beta var function
 
 
