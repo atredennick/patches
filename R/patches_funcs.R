@@ -38,7 +38,10 @@ species_synchrony <- function(D,
   ####  Within patch species synchrony
   ####
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   species_synchrony <- matrix(ncol=2, nrow=num_plots)
   for(plot_now in 1:num_plots){
     tmp_data <- subset(D, id_var==plot_ids[plot_now])
