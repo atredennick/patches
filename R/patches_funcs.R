@@ -105,7 +105,10 @@ ind_spp_var <- function(D,
   
   # Get index of species columns
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   
   ####
   ####  Variability of j-th species in patch i (CV_j(i)^2)
@@ -164,7 +167,10 @@ avg_spp_var <- function(D,
   
   # Get index of species columns
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   
   
   ####
@@ -244,7 +250,10 @@ community_var <- function(D,
   
   # Get index of species columns
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   
   ####
   ####  Within patch species synchrony
@@ -346,7 +355,10 @@ alpha_var <- function(D,
   
   # Get index of species columns
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   
   # Get mean community biomass, cv per plot
   spp_long <- melt(D, measure.vars = species_columns)
@@ -355,8 +367,17 @@ alpha_var <- function(D,
   patch_cvs <- ddply(patch_abund , .(id_var), summarise,
                      cv = sd(comm_anpp)/mean(comm_anpp),
                      sds = sd(comm_anpp))
-  total_metacomm <- ddply(spp_long, .(time_var), summarise,
-                          total_biomass = sum(value))
+  total_metacomm <- ddply(patch_abund, .(time_var), summarise,
+                          total_biomass = sum(comm_anpp))
+#   if(var_type=="cover"){
+#     total_metacomm <- ddply(patch_abund, .(time_var), summarise,
+#                             total_biomass = mean(comm_anpp))
+#   }
+#   if(var_type=="biomass"){
+#     total_metacomm <- ddply(patch_abund, .(time_var), summarise,
+#                             total_biomass = sum(comm_anpp))
+#   }
+  
   mean_metacomm <- mean(total_metacomm$total_biomass)
   weighted_local_cv <- sum(patch_cvs$sds) / mean_metacomm
   
@@ -409,7 +430,10 @@ beta_var <- function(D,
 
   
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   
   spp_long <- melt(D, measure.vars = species_columns)
   patch_abund <- ddply(spp_long, .(time_var, id_var), summarise,
@@ -471,7 +495,10 @@ gamma_var <- function(D,
   }
   
   species_columns <- colnames(D)[grep(species_id, colnames(D))]
-  species_columns <- species_columns[-grep("species", species_columns)]
+  tmprms <- grep("species", species_columns) # check for extra species col
+  if(length(tmprms)>0){
+    species_columns <- species_columns[-tmprms]
+  }
   
   spp_long <- melt(D, measure.vars = species_columns)
   patch_abund <- ddply(spp_long, .(time_var, id_var), summarise,
