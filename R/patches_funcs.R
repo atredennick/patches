@@ -61,6 +61,8 @@ species_synchrony <- function(D,
     species_synchrony[plot_now,2] <- summed_inter / summed_sq_intra^2
   } # end plot loop
   
+  species_synchrony <- as.data.frame(species_synchrony)
+  colnames(species_synchrony) <- c("plot", "spp_synch")
   return(species_synchrony)
   
 } # end species synchrony function
