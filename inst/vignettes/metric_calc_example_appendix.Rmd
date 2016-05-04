@@ -1,0 +1,337 @@
+---
+fontsize: 12pt
+geometry: margin=1in
+header-includes:
+- \usepackage{lineno}
+- \linenumbers
+- \usepackage{setspace}
+- \usepackage{todonotes}
+- \usepackage{color}
+- \usepackage{rotating}
+layout: 12pt
+linkcolor: black
+csl: ecology-letters.csl
+output:
+  pdf_document:
+    fig_caption: yes
+    keep_tex: no
+urlcolor: black
+bibliography: biblio.bib
+---
+
+Appendix X: Example of Metric Calculations
+==========================================
+
+In this appedix, we provide a walk-through example of calculating all the metrics for alpha, beta, and gamma stability, and associated predictors, using a single data set. We show annotated `R` code throughout the appendix.
+
+The Data
+--------
+For this example, we use data from the Cedar Creek Long Term Ecological Research station in Minnesota, USA [@tilman1999].
+Furthermore, we focus on one set of plots in Field A under control treatments (e001), which we refer to as a meta-community.
+The e001 meta-community consists of six 1 $\text{m}^2$ plots (communities).
+For 23 years, annual net primary productivity at the community level (e.g., not species-specific) and percent cover at the species level (e.g., species-specific measurements) were estimated annually in each plot.
+
+```{r cdr_anpp_table, echo=FALSE, include=TRUE, warning=FALSE, message=FALSE, results="asis"}
+library(plyr)
+library(reshape2)
+library(dplyr)
+library(xtable)
+library(grid)
+
+path2data <- "../FULL_ANALYSIS/data/"
+fname_anpp <- "ANPP_control plot data_March2016_final.csv"
+anpp_dat <- read.csv(paste0(path2data, fname_anpp))%>%
+              filter(site_proj_comm=="CDR_e001_A")
+summary_stats <- ddply(anpp_dat, .(as.factor(plot_id)), summarise,
+                       n_years = length(unique(calendar_year)),
+                       avg_anpp = mean(anpp))
+print.xtable(xtable(summary_stats, 
+                    caption = "Summary statistics for the plots (communities) in Cedar Creek e001 Field A."),
+             type="latex", comment=FALSE,
+             include.rownames=FALSE, caption.placement="top")
+```
+
+We are interested in temporal dynamics at several levels of organization: species, community, and meta-community or ecosystem.
+Since the ANPP data are not species-specific, we can only calculate metrics of temporal dynamics at the community and ecosystem levels (Fig. 1).
+The cover data, on the other hand, are species-specific, so we can analyze time series at all three levels of organization (Fig. 2).
+
+```{r cdr_anpp_fig, echo=FALSE, include=TRUE, warning=FALSE, message=FALSE, results="asis", fig.height=3, fig.width=6, fig.cap="Time series of ANPP for the six plots (communities) within the Cedar Creek e001 Field A meta-community. Colored lines correspond to time series that determine temporal variability at the alpha level, whereas the black line of total meta-community ANPP determines the temporal variability at the gamma level."}
+library(ggplot2)
+library(gridExtra)
+total_anpp <- ddply(anpp_dat, .(calendar_year), summarise,
+                    anpp = sum(anpp))
+ggplot()+
+  geom_line(data=anpp_dat, aes(x=calendar_year, y=anpp, color=as.factor(plot_id)))+
+  geom_point(data=anpp_dat, aes(x=calendar_year, y=anpp, color=as.factor(plot_id)), size=2)+
+  geom_line(data=total_anpp, aes(x=calendar_year, y=anpp))+
+  geom_point(data=total_anpp, aes(x=calendar_year, y=anpp), size=2)+
+  theme(legend.key.size = unit(0.5, "cm"))
+```
+
+```{r cdr_cover_fig, echo=FALSE, include=TRUE, warning=FALSE, message=FALSE, results="asis", fig.height=3.5, fig.width=7, fig.cap="Time series of species cover for the six plots (communities) within the Cedar Creek e001 Field A meta-community. Colored lines correspond to time series that determine temporal variability at the species level, whereas the black line of total community cover determines the temporal variability at the alpha level. Averaging the black lines across communities yields temporal variability at the gamma (meta-community or regional ecosystem) level."}
+fname_cover <- "Abs sp abundance_control plot data_Mar2015.csv"
+cover_dat <- read.csv(paste0(path2data, fname_cover))%>%
+              filter(site_proj_comm=="CDR_e001_A")
+
+# Exclude species that never appear, by plot
+cover_dat_present <- list()
+for(iplot in 1:length(unique(cover_dat$plot_id))){
+  tmp_dat <- subset(cover_dat, plot_id==unique(cover_dat$plot_id)[iplot])
+  tmp_spp <- tmp_dat[,grep("sp", colnames(tmp_dat))]
+  spp_to_keep <- which(colSums(tmp_spp)>0)
+  out_dat <- cbind(tmp_dat[,c("site_proj_comm", "calendar_year", "plot_id")], tmp_spp[,spp_to_keep])
+  out_dat_long <- melt(out_dat, id.vars = c("site_proj_comm", "plot_id", "calendar_year"))
+  cover_dat_present <- rbind(cover_dat_present, out_dat_long)
+}
+
+cover_dat_present$plot_name <- with(cover_dat_present, paste("plot id:",plot_id))
+total_cover <- ddply(cover_dat_present, .(plot_name, calendar_year), summarise,
+                     tot_cover = sum(value))
+ggplot()+
+  geom_line(data=cover_dat_present, aes(x=calendar_year, y=value, color=variable))+
+  geom_line(data=total_cover, aes(x=calendar_year, y=tot_cover), size=1)+
+  facet_wrap("plot_name", scales="free_y")+
+  ylab("cover")+
+  guides(color=FALSE)
+```
+
+\newpage{}
+
+The Metrics
+-----------
+### Averaged species-level variability in patch *i* ($CV_{species(i)}^2$)
+Averaged species-level variability is the squared coefficient of temporal variation of species abundance within local patches (plots or communities). To account for unevenness in species abundance within local patches, we calculate the weighted average of species variability, following Wang and Loreau [-@wang2014], as
+
+\begin{align}
+CV_{species(i)} = \sum_{j=1}^S \frac{\mu_{j(i)}}{\mu_i} \cdot CV_{j(i)}
+\end{align}
+
+where *S* is the number of species within patch *i*, $\mu_{j(i)}$ is the temporal mean abundance of species *j* within patch *i*, $\mu_i$ is the temporal mean of total community abundance (summed species abundance) in patch *i*, and $CV_{j(i)}$ the temporal coefficient of variation of species *i* in patch *j*.
+Thus, if we have *m* patches, then we end up with *m* estimates of within-patch species-level variability.
+To calculate this metric for each plot, we use the species-level cover data (Fig. 2) as shown in the following `R` chunk.
+
+```{r spp_var_in_patch, eval=TRUE, echo=TRUE}
+# Take a look at the data
+head(cover_dat_present)
+
+# Calculate temporal mean community abundance for each plot (mu_i)
+total_cover_by_plot <- ddply(cover_dat_present, .(plot_id, calendar_year), summarise,
+                             total_cover = sum(value))
+head(total_cover_by_plot)
+mu_i <- ddply(total_cover_by_plot, .(plot_id), summarise,
+              mean_cover = mean(total_cover))
+print(mu_i)
+
+# Calculate each species CV and temporal mean within each plot 
+spp_cv_by_plot <- ddply(cover_dat_present, .(plot_id, variable), summarise,
+                        mu_spp = mean(value),
+                        cv_spp = sd(value)/mean(value))
+
+# Merge dataframe for easy calculation of species weights
+spp_cv_combined <- merge(mu_i, spp_cv_by_plot, all.y = TRUE)
+head(spp_cv_combined)
+
+# Calculate species weights
+spp_cv_combined$spp_weight <- with(spp_cv_combined, mu_spp/mean_cover)
+
+# Finally, multiply weights by CVs and sum within plots
+spp_cv_combined$cv_weight <- with(spp_cv_combined, spp_weight*cv_spp)
+avg_spp_cv <- ddply(spp_cv_combined, .(plot_id), summarise, 
+                    averaged_cv = sum(cv_weight))
+print(avg_spp_cv)
+```
+
+### Species synchrony in patch *i* ($\phi_{species(i)}$)
+Following Loreau and de Mazancourt [-@loreau2008] and Wang and Loreau [-@wang2014], we calculate species synchrony within local patch *i* as
+
+\begin{align}
+\phi_{species(i)} = \frac{\sum_{k,l} w_{kl,i}}{\left(\sum_k \sqrt{w_{kk,i}} \right)^2}
+\end{align}
+
+where $w_{kl,i}$ is the temporal covariance between species *k* and *l* in patch *i* and $w_{kk,i}$ is the temporal covariance of species *k* in patch *i* (i.e., species *k*'s temporal standard deviation).
+Using the species-level data (Fig. 2), we calculate species synchrony in `R` as shown in the following code chunks.
+
+```{r spp_synchrony, eval=TRUE, echo=TRUE}
+number_of_plots <- length(unique(cover_dat_present$plot_id))
+species_synchrony <- matrix(ncol=2, nrow=number_of_plots) # results storage matrix
+
+# Loop over plots; calculate synchrony
+counter <- 1 # loop counter for indexing matrix
+for(do_plot in unique(cover_dat_present$plot_id)){
+  tmp_data <- subset(cover_dat_present, plot_id==do_plot)
+  tmp_data_species <- tmp_data[,c("calendar_year", "variable", "value")]
+  community_matrix <- dcast(tmp_data_species, calendar_year~variable)
+  community_matrix <- community_matrix[,2:ncol(community_matrix)] # drop year column
+  
+  # Remove species columns that only include 0s
+  keepers <- which(colSums(community_matrix)!=0)
+  comm_matrix <- community_matrix[,keepers]
+  
+  # Calculate full temporal covariance matrix
+  cov_matrix <- cov(comm_matrix)
+  
+  # Subset out the intraspecific temporal covariance (diagonals)
+  intraspecific_cov_vector <- diag(cov_matrix)
+  
+  # Sum the covariance matrix and vector
+  summed_inter <- sum(cov_matrix) # numerator of equation 2
+  summed_sq_intra <- sum(sqrt(intraspecific_cov_vector)) # denominator of equation 2
+  
+  # Calculate synchrony in this patch
+  patch_synchrony <- summed_inter / summed_sq_intra^2
+  
+  # Save output
+  species_synchrony[counter,1] <- do_plot
+  species_synchrony[counter,2] <- patch_synchrony
+  counter <- counter+1 # advance the loop counter
+} # end plot loop
+
+species_synchrony <- as.data.frame(species_synchrony)
+colnames(species_synchrony) <- c("plot_id", "species_synchrony")
+print(species_synchrony)
+```
+
+### Variability of community *i* ($CV_i^2$)
+The temporal variability of patch *i* is the squared coefficient of variation of community *i* abundance (summed species cover within patches) over time.
+It can be calculated directly using summed species cover within a plot, but it can also be calculated from species-level variability and synchrony since, as defined by Wang and Loreau [-@wang2014], community variability is the product of averaged species variability and species synchrony: $CV_i^2 = CV_{species(i)}^2 \cdot \phi_{species(i)}$.
+We show both calculations in `R` below.
+
+#### Calculation based on summed species cover
+```{r summed_cover_commvar, echo=TRUE, eval=TRUE}
+# Reminder of data structure
+head(cover_dat_present)
+
+# Calculate total community cover in each patch
+community_cover <- ddply(cover_dat_present, .(plot_id, calendar_year), summarise,
+                         total_cover = sum(value))
+head(community_cover)
+
+# Calculate variability of each community
+community_variability <- ddply(community_cover, .(plot_id), summarise,
+                               comm_var = (sd(total_cover)/mean(total_cover))^2)
+community_variability
+```
+
+#### Calculation based on species variability and species synchrony
+```{r equation_commvar, echo=TRUE, eval=TRUE}
+# Reminder of previously-calculated metrics
+print(species_synchrony)
+print(avg_spp_cv)
+
+# Merge the data frames for easy multiplication
+species_metrics <- merge(species_synchrony, avg_spp_cv)
+
+# REMEMBER TO SQAURE AVG SPP VAR
+comm_var2 <- with(species_metrics, species_synchrony*averaged_cv^2)
+community_variability2 <- data.frame(plot_id = species_metrics$plot_id,
+                                     comm_var2 = comm_var2)
+print(community_variability2)
+
+# Compare the two versions to make sure we get same results
+print(merge(community_variability,community_variability2)) # ...whew!
+```
+
+
+### Alpha Variability ($\alpha_{CV} = CV_L^2$)
+Alpha variability is the temporal variability at the local, patch-level, scale.
+It is the squared community-level variability, which is the weighted average of the individual community CVs.
+As defined by Wang and Loreau (2014), we calculate $CV_L$ as
+
+\begin{align}
+CV_L = \sum_{i=1}^m \frac{\mu_i}{\mu_M} \cdot CV_i
+\end{align}
+
+where *m* is the total number of local communities (patches or plots), $\mu_i$ is the temporal mean of plant abundance in plot *i*, $\mu_M$ is the temporal mean of plant abundance in the metacommunity (i.e., average abundance across all plots), and $CV_i$ is the coefficient of variability of community *i* ($\sqrt{CV_i^2}$ from previous section on community variability).
+Here is how we calculate this in `R`, building on previous sections.
+
+```{r alpha_var, echo=TRUE, eval=TRUE}
+# Calculate the temporal mean of total community cover in each plot (mu_i)
+mean_cover_by_plot <- ddply(total_cover_by_plot, .(plot_id), summarise,
+                            avg_cover = mean(total_cover))
+mean_cover_by_plot
+
+# Calculate temporal mean of metacommunity (mu_M)
+mean_cover_by_plot$mean_cover_metacomm <- sum(mean_cover_by_plot$avg_cover)
+
+# Calculate plot weighting before multiplying by CV_i
+mean_cover_by_plot$plot_weights <- with(mean_cover_by_plot, avg_cover/mean_cover_metacomm)
+
+# Add in CV_i for each plot -- TAKE SQAURE ROOT
+mean_cover_by_plot$cv_i <- sqrt(community_variability$comm_var)
+
+# Multiply and sum
+CV_L <- sum(with(mean_cover_by_plot, plot_weights*cv_i))
+alpha_var <- CV_L^2
+print(paste("alpha variability =", round(alpha_var,4)))
+```
+
+### Beta variability ($\beta_{CV} = 1/\phi$)
+Beta variability measures how much variability is reduced from the local (alpha) to the regional (gamma) scales, and is the inverse of spatial synchrony among communities (Wang & Loreau 2014).
+Spatial synchrony ($\phi$) is calculated using the same formula as species synchrony (Loreau & de Mazancourt 2008):
+
+\begin{align}
+\phi = \frac{\sum_{i,j}w_{ij}}{\left(\sum_i \sqrt{w_{ii}} \right)}
+\end{align}
+
+where $w_{ij}$ is the temporal covariance between community abundance in patch *i* and patch *j*, and $w_{ii}$ is the temporal variance of community abundance in patch *i*.
+The following is how we calculate spatial synchrony in `R`.
+
+```{r beta_var, echo=TRUE, eval=TRUE}
+# Reminder of previously-made data frame structure for total community cover time series
+head(total_cover_by_plot)
+metacommunity_matrix <- dcast(total_cover_by_plot, calendar_year~plot_id, value.var="total_cover")
+
+# Get rid of year column
+metacommunity_matrix <- metacommunity_matrix[,2:ncol(metacommunity_matrix)]
+metacommunity_covariance <- cov(metacommunity_matrix)
+
+# Subset out the within-plot variance (diagonals)
+plot_variance <- diag(metacommunity_covariance)
+
+# Sum the plot temporal standard deviations; then square
+synch_denominator <- (sum(sqrt(plot_variance)))^2
+
+# Sum the entire covariance matrix
+synch_numerator <- sum(metacommunity_covariance)
+
+# Calculate spatial synchrony and beta variability
+spatial_synchrony <- synch_numerator / synch_denominator
+beta_variability <- 1/spatial_synchrony
+print(paste("beta variability =", round(beta_variability,4)))
+```
+
+
+### Gamma variability ($\gamma_{CV} = CV_M^2$)
+Gamma variability is the temporal variability at the metacommunity scale [@wang2014].
+It can be calculated as the coefficient of variation of total metacommunity abundance, or using the equation derived by Wang and Loreau [-@wang2014]: $\gamma_{CV} = \alpha_{CV} / \beta_{CV}$.
+Lastly, gamma variability can also be calculated from patch covariances as
+
+\begin{align}
+\gamma_{CV} = CV_M^2 = \left(\frac{\sqrt{\sum_{i,j}w_{ij}}}{\mu_M} \right)^2
+\end{align}
+
+where $w_{ij}$ is the temporal covariance of community biomass between patches *i* and *j*, and $\mu_M$ is the temporal mean of metacommunity abundance.
+We show how we arrive at gamma variability using all three calculations in `R`.
+
+```{r gamma_var, echo=TRUE, eval=TRUE}
+# Calculate as coefficient of variation
+metacommunity_cover <- ddply(total_cover_by_plot, .(calendar_year), summarise,
+                             metacomm_cover = sum(total_cover))
+gamma_as_cv <- (with(metacommunity_cover, sd(metacomm_cover)/mean(metacomm_cover)))^2 
+
+# Calculate from alpha and beta CV
+gamma_as_alpha_beta <- alpha_var/beta_variability
+
+# Calculate from plot covariance matrix
+numerator_gamma <- sqrt(sum(metacommunity_covariance))
+denominator_gamma <- mean(metacommunity_cover$metacomm_cover)
+gamma_from_cov <- (numerator_gamma / denominator_gamma)^2
+
+# Look at all three...they're the same!!
+paste("gamma variability from CV =", round(gamma_as_cv,4))
+paste("gamma variability from alpha and beta =", round(gamma_as_alpha_beta,4))
+paste("gamma variability from patch covariances =", round(gamma_from_cov,4))
+```
+
+References
+--------
