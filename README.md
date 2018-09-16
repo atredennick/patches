@@ -19,7 +19,7 @@ The function `patches_var()` returns a list of metrics, currently including (not
 
 See Table 1 in [Wang and Loreau 2014](http://onlinelibrary.wiley.com/doi/10.1111/ele.12292/abstract) for mathematical details.
 
-##License
+## License
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Tredennick
